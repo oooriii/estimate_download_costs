@@ -20,7 +20,7 @@ uv sync
 Pass the log file as an argument:
 
 ```bash
-uv run python main.py 20260615_downloads_ddocs.txt
+uv run python main.py analyze 20260615_downloads_ddocs.txt
 ```
 
 Help:
@@ -66,7 +66,7 @@ Lines that do not match this format are ignored.
 
 ```python
 from pathlib import Path
-from main import parse_file
+from parser import parse_file
 
 stats = parse_file(Path("20260615_downloads_ddocs.txt"))
 print(stats.min_date, stats.max_date, stats.total_records, stats.total_bytes)

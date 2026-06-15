@@ -1,9 +1,18 @@
 [project]
 name = "estudi-s3"
 version = "0.1.0"
-description = "Add your description here"
+description = "Analyze Apache download logs and estimate AWS S3 costs"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "rich>=15.0.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
