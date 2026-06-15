@@ -45,7 +45,7 @@ uv run python main.py analyze 20260615_downloads_ddocs.txt \
 
 ### File demand report
 
-Rank downloaded files (DSpace bitstreams) by records and bytes. URL variants such as `/bitstream/10256/…/file.pdf` and `/bitstream/handle/10256/…/file.pdf?sequence=N` are normalized to one path per document.
+Rank downloaded files (DSpace bitstreams) by records and bytes. URL variants such as `/bitstream/10256/…/file.pdf` and `/bitstream/handle/10256/…/file.pdf?sequence=N` are normalized to one path per document. The report shows a compact ranking by filename plus a separate path reference table.
 
 By default writes:
 
