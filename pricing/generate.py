@@ -80,7 +80,9 @@ def _per_ten_thousand_price(offer: dict[str, Any], usagetype: str) -> float:
     return _first_tier_unit_price(offer, usagetype) * 10000
 
 
-def _transfer_tiers_from_offer(offer: dict[str, Any], usagetype: str) -> tuple[PriceTier, ...]:
+def _transfer_tiers_from_offer(
+    offer: dict[str, Any], usagetype: str
+) -> tuple[PriceTier, ...]:
     dimensions = _iter_price_dimensions(offer, usagetype)
     tiers: list[PriceTier] = []
     for index, dimension in enumerate(dimensions):
@@ -136,7 +138,9 @@ def generate_pricing_config(
             requests_per_10000={
                 "GET": _per_ten_thousand_price(cf_offer, CLOUDFRONT_GET_USAGETYPE),
             },
-            recommended_cache_hit_ratio=EU_SOUTH_2_DEFAULTS["recommended_cache_hit_ratio"],
+            recommended_cache_hit_ratio=EU_SOUTH_2_DEFAULTS[
+                "recommended_cache_hit_ratio"
+            ],
         )
 
     config = PricingConfig(

@@ -9,8 +9,8 @@ from rich.panel import Panel
 from rich.prompt import Confirm, FloatPrompt, Prompt
 from rich.table import Table
 
-from pricing.defaults import EU_SOUTH_2_DEFAULTS
 from pricing.aws_offers import download_offers
+from pricing.defaults import EU_SOUTH_2_DEFAULTS
 from pricing.generate import PricingGenerationError, generate_pricing_config
 from pricing.loader import load_pricing_config, save_pricing_config
 from pricing.schema import (
@@ -23,7 +23,6 @@ from pricing.schema import (
     PricingConfig,
     PricingValidationError,
     S3Pricing,
-    collect_warnings,
     format_money,
     parse_pricing_config,
 )
@@ -80,7 +79,9 @@ def _prompt_transfer_tiers(
     for index, (default_limit, default_price) in enumerate(defaults):
         is_last = index == len(defaults) - 1
         if is_last:
-            price = _prompt_positive_float("  Final tier price per GB (USD)", default_price)
+            price = _prompt_positive_float(
+                "  Final tier price per GB (USD)", default_price
+            )
             tiers.append(PriceTier(up_to_gb=None, price=price))
             continue
 
@@ -334,7 +335,8 @@ def cmd_pricing_generate(args: argparse.Namespace) -> int:
 
     if args.output.exists() and not args.force:
         console.print(
-            f"[red]Error:[/red] '{args.output}' already exists. Use --force to overwrite."
+            f"[red]Error:[/red] '{args.output}' already exists. "
+            "Use --force to overwrite."
         )
         return 1
 
@@ -375,7 +377,9 @@ def register_pricing_commands(subparsers: argparse._SubParsersAction) -> None:
     pricing = subparsers.add_parser("pricing", help="Manage AWS pricing JSON files")
     pricing_sub = pricing.add_subparsers(dest="pricing_command", required=True)
 
-    init = pricing_sub.add_parser("init", help="Create a pricing JSON file interactively")
+    init = pricing_sub.add_parser(
+        "init", help="Create a pricing JSON file interactively"
+    )
     init.add_argument(
         "--output",
         type=Path,

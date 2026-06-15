@@ -3,7 +3,7 @@ from parser import LogLine, parse_file
 
 def test_from_line_parses_standard_log_line():
     line = (
-        '/var/log/apache2/access_ssl_anubis.log:- - - [15/Jun/2026:06:26:23 +0200] '
+        "/var/log/apache2/access_ssl_anubis.log:- - - [15/Jun/2026:06:26:23 +0200] "
         '"GET /bitstream/handle/10256/23347/document.pdf HTTP/1.1" '
         '200 11555603 "-" "Mozilla/5.0"'
     )
@@ -18,7 +18,7 @@ def test_from_line_parses_standard_log_line():
 
 def test_from_line_parses_ipv6_host():
     line = (
-        '/var/log/apache2/access_ssl.log.9.gz:::1 - - [06/Jun/2026:06:12:36 +0200] '
+        "/var/log/apache2/access_ssl.log.9.gz:::1 - - [06/Jun/2026:06:12:36 +0200] "
         '"GET /bitstream/handle/10256/20572/034821.pdf HTTP/1.1" '
         '200 947967 "-" "Mozilla/5.0"'
     )

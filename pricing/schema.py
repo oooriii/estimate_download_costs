@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-
 DEFAULT_USD_EUR_RATE = 0.92
 DEFAULT_USD_EUR_RATE_WARNING = (
     "Using default USD/EUR rate (0.92). Update it to match current exchange rates."
@@ -124,7 +123,9 @@ def _parse_price_tiers(value: Any, field: str) -> tuple[PriceTier, ...]:
             raise PricingValidationError(f"{field}[{index}].price must be >= 0")
 
         up_to_gb = item.get("up_to_gb")
-        if up_to_gb is not None and (not isinstance(up_to_gb, (int, float)) or up_to_gb <= 0):
+        if up_to_gb is not None and (
+            not isinstance(up_to_gb, (int, float)) or up_to_gb <= 0
+        ):
             raise PricingValidationError(
                 f"{field}[{index}].up_to_gb must be null or a positive number"
             )
@@ -140,7 +141,9 @@ def _parse_price_tiers(value: Any, field: str) -> tuple[PriceTier, ...]:
     return tuple(tiers)
 
 
-def _parse_price_map(value: Any, field: str, required_keys: tuple[str, ...]) -> dict[str, float]:
+def _parse_price_map(
+    value: Any, field: str, required_keys: tuple[str, ...]
+) -> dict[str, float]:
     if not isinstance(value, dict) or not value:
         raise PricingValidationError(f"{field} must be a non-empty object")
 
@@ -154,7 +157,9 @@ def _parse_price_map(value: Any, field: str, required_keys: tuple[str, ...]) -> 
 
     missing = [key for key in required_keys if key not in parsed]
     if missing:
-        raise PricingValidationError(f"{field} missing required keys: {', '.join(missing)}")
+        raise PricingValidationError(
+            f"{field} missing required keys: {', '.join(missing)}"
+        )
 
     return parsed
 

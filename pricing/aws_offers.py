@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.request import urlopen
@@ -93,7 +93,7 @@ def load_manifest() -> dict[str, Any]:
 
 def download_offers(fetch: Any = _fetch_json) -> list[DownloadResult]:
     OFFERS_DIR.mkdir(parents=True, exist_ok=True)
-    downloaded_at = datetime.now(timezone.utc).isoformat()
+    downloaded_at = datetime.now(UTC).isoformat()
     results: list[DownloadResult] = []
 
     s3_data = fetch(OFFER_SOURCES["amazon-s3"])
