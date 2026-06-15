@@ -47,10 +47,10 @@ uv run python main.py analyze 20260615_downloads_ddocs.txt \
 
 Combined report: traffic analysis, bots, countries, AWS cost estimate, and optional storage-class comparison. By default writes:
 
-- `<output-dir>/<log>-report.pdf`
-- `<output-dir>/<log>-ips.csv`
+- `reports/management-report.pdf`
+- `reports/problematic-ips.csv`
 
-(`output-dir` defaults to `reports/`.)
+(`output-dir` defaults to `reports/`. Override paths with `--pdf`, `--csv-ips`, or `--output-dir`.)
 
 ```bash
 uv run python main.py report 20260615_downloads_ddocs.txt \
@@ -67,8 +67,8 @@ uv run python main.py report 20260615_downloads_ddocs.txt \
 | `--items` | Number of stored objects (required) |
 | `--geoip-db` | GeoLite2-Country.mmdb for country breakdown (auto-detected in cwd if omitted) |
 | `--output-dir` | Directory for PDF and CSV outputs (default: `reports/`) |
-| `--pdf` | PDF output path (default: `<output-dir>/<log>-report.pdf`) |
-| `--csv-ips` | CSV output path (default: `<output-dir>/<log>-ips.csv`) |
+| `--pdf` | PDF output path (default: `<output-dir>/management-report.pdf`) |
+| `--csv-ips` | CSV output path (default: `<output-dir>/problematic-ips.csv`) |
 | `--no-csv-ips` | Skip CSV export |
 | `--growth` | Annual growth rate (default: `10%`) |
 | `--forecast-years` | Multi-year forecast in PDF (default: `0` = hide) |
@@ -153,6 +153,10 @@ The report shows:
 - **Storage class comparison** (with `--compare-storage-classes`) — side-by-side monthly/annual totals for S3 direct
 
 Amounts are shown in USD with indicative EUR (from the pricing file's `display.usd_eur_rate`). This is an estimate, not a billing guarantee.
+
+**Monthly vs annual:** each scenario prints both a **monthly** table (current run rate) and an **annual** table (monthly × 12, with growth applied to annual lines when `--growth` is set). The multi-year forecast table shows **annual** totals per year, not monthly.
+
+EUR conversion is controlled in `pricing/eu-south-2.json` under `display.show_eur` and `display.usd_eur_rate` (no extra CLI flag). Terminal output uses `€`; PDF uses `USD … (EUR …)` for compatibility.
 
 ```bash
 uv run python main.py estimate --help
