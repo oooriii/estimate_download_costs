@@ -28,6 +28,15 @@ class FileDemandResult:
     other_records: int
 
 
+def display_filename(item: FileDemand) -> str:
+    if item.filename:
+        return item.filename
+    path = item.path.rstrip("/")
+    if "/" in path:
+        return path.rsplit("/", 1)[-1]
+    return path or "—"
+
+
 def _resolve_path(raw_path: str, *, bitstreams_only: bool) -> tuple[str, BitstreamRef | None]:
     bitstream = parse_bitstream_ref(raw_path)
     if bitstream is not None:

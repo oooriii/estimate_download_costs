@@ -11,7 +11,7 @@ from fpdf.enums import XPos, YPos
 from abuse import AnalysisResult, top_items
 from bots import BOT_CATEGORY_LABELS
 from cost_model import EstimateResult, ScenarioCosts
-from demand import FileDemandResult
+from demand import FileDemandResult, display_filename
 from estimate_report import scenario_calculation_lines
 from geo import top_countries
 from parser import TrafficStats
@@ -230,6 +230,29 @@ class _PdfBuilder:
             self.pdf.multi_cell(self.pdf.epw, 4.5, _pdf_text(line))
         self.pdf.ln(2)
 
+    def add_numbered_path_reference(
+        self,
+        items: tuple[tuple[str, str, str], ...],
+    ) -> None:
+        """Render #, filename, and wrapped full path entries."""
+        self.pdf.set_font("Helvetica", "", 8)
+        for rank, filename, path in items:
+            if self.pdf.get_y() > 265:
+                self.pdf.add_page()
+            self.pdf.set_x(self.pdf.l_margin)
+            self.pdf.set_font("Helvetica", "B", 8)
+            self.pdf.cell(
+                0,
+                5,
+                _pdf_text(f"{rank}. {filename}"),
+                new_x=XPos.LMARGIN,
+                new_y=YPos.NEXT,
+            )
+            self.pdf.set_font("Helvetica", "", 8)
+            self.pdf.set_x(self.pdf.l_margin + 4)
+            self.pdf.multi_cell(self.pdf.epw - 4, 4.5, _pdf_text(path))
+            self.pdf.ln(1)
+
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         self.pdf.output(str(path))
@@ -289,15 +312,13 @@ def _add_demand_sections(
     builder.add_section(
         "Top demanded files",
         subtitle=(
-            "DSpace bitstream URLs normalized to one path per document."
-            if bitstreams_only
-            else "All request paths; bitstreams normalized when possible."
+            "Ranked by bytes transferred. See the path reference section below."
         ),
     )
     table_rows = tuple(
         (
             str(index),
-            _truncate_pdf(item.path, limit=52),
+            _truncate_pdf(display_filename(item), limit=36),
             item.item_id or "-",
             f"{item.records:,}",
             _format_share_pct(item.records, stats.total_records),
@@ -311,7 +332,7 @@ def _add_demand_sections(
     builder.add_table(
         (
             "#",
-            "Path",
+            "Filename",
             "Item",
             "Records",
             "% rec.",
@@ -321,7 +342,18 @@ def _add_demand_sections(
             "Bot rec.",
         ),
         table_rows,
-        col_widths=(8, 58, 22, 16, 14, 18, 14, 10, 14),
+        col_widths=(8, 40, 24, 14, 12, 18, 12, 10, 12),
+    )
+
+    builder.add_section(
+        "File paths (reference)",
+        subtitle="Full normalized paths for the ranked files above.",
+    )
+    builder.add_numbered_path_reference(
+        tuple(
+            (str(index), display_filename(item), item.path)
+            for index, item in enumerate(rows, start=1)
+        )
     )
 
 
