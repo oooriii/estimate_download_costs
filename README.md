@@ -30,7 +30,7 @@ uv run python main.py analyze 20260615_downloads_ddocs.txt \
   --geoip-db /path/to/GeoLite2-Country.mmdb
 ```
 
-The country table shows records and bytes per country (top 15 plus an “Other” row). Use this to see how much traffic comes from outside your target region before configuring CloudFront geo restrictions.
+The analyze command also reports bot vs human traffic (from user-agent heuristics), top clients by IP and user-agent (with abuse highlighting), and optionally traffic by country. Use `--abuse-top` and `--abuse-min-bytes-pct` to tune the abuse tables.
 
 Help:
 
