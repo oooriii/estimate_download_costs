@@ -88,13 +88,7 @@ uv run python main.py static 20260615_static_dfe.txt --top 50
 | `--csv` / `--csv-daily` / `--csv-summary` | Override export paths |
 | `--no-csv` | Skip CSV exports |
 
-Extract static lines on the server (example for DFE):
-
-```bash
-sudo zgrep -E '\.(css|js|woff2?|ttf|eot|svg|png|jpe?g|gif|webp|ico) HTTP' \
-  /var/log/apache2/access_ssl.log* \
-  | grep 'HTTP/1.1" 200' > /home/pencaire/20260615_static_dfe.txt
-```
+See [Generating input files](#generating-input-files) for how to extract static-asset logs on the server.
 
 ### Management report (PDF + CSV)
 
@@ -332,27 +326,60 @@ print(stats.min_date, stats.max_date, stats.total_records, stats.total_bytes)
 
 ## Generating input files
 
-Input files are extracted from Apache access logs on the server. Example for DUGi-Doc (`ddocs`):
+Input files are extracted from Apache access logs on the server.
+
+### Bitstream downloads
+
+Example for DUGi-Doc (`ddocs`):
 
 ```bash
 sudo zgrep '/bitstream/handle/10256' /var/log/apache2/access_ssl* \
   | grep 'HTTP/1.1" 200' > /home/pencaire/20260615_downloads_ddocs.txt
 ```
 
+Example for DUGi Fons Especials (`dfe`):
+
+```bash
+sudo zgrep '/bitstream/handle/10256.2' /var/log/apache2/access_ssl.log* \
+  | grep 'HTTP/1.1" 200' > /home/pencaire/20260615_downloads_dfe.txt
+```
+
 The command does two things:
 
-1. **`zgrep '/bitstream/handle/10256'`** — selects log lines for DSpace bitstream downloads (handles starting with `10256`).
+1. **`zgrep '/bitstream/handle/…'`** — selects log lines for DSpace bitstream downloads (adapt the handle prefix per repository).
 2. **`grep 'HTTP/1.1" 200'`** — keeps only successful responses (HTTP 200).
 
 The HTTP 200 filter is intentional: we only count **real, completed downloads**. Redirects (3xx), missing files (404), server errors (5xx), and other non-success responses are excluded so byte totals reflect actual transferred data.
 
 `zgrep` is used so both plain and rotated/compressed logs (`access_ssl.log`, `access_ssl.log.1.gz`, etc.) are searched.
 
-Adapt the handle prefix and output filename for other repositories (e.g. `10256.2` for DFE).
+### Static assets (CSS, JS, fonts, images)
+
+For the `static` command, extract lines whose URL ends in a static file extension:
+
+```bash
+STATIC_RE='\.(css|js|woff2?|ttf|eot|svg|png|jpe?g|gif|webp|ico) HTTP'
+```
+
+DUGi-Doc (`ddocs`) — traffic behind Anubis:
+
+```bash
+sudo zgrep -E "$STATIC_RE" /var/log/apache2/anubis_access.log* \
+  | grep 'HTTP/1.1" 200' > /home/pencaire/20260615_static_ddocs.txt
+```
+
+DUGi Fons Especials (`dfe`) — direct SSL access log:
+
+```bash
+sudo zgrep -E "$STATIC_RE" /var/log/apache2/access_ssl.log* \
+  | grep 'HTTP/1.1" 200' > /home/pencaire/20260615_static_dfe.txt
+```
+
+This captures theme files (`/static/`, `/themes/`, `loadJQuery.js`, etc.) and bitstream images (covers, thumbnails) served with an image extension. It does **not** include HTML pages or PDF bitstreams.
 
 ## Data files
 
-Input log files (`20260615_downloads_*.txt`) are excluded from version control via `.gitignore` for two reasons:
+Input log files (`20260615_downloads_*.txt`, `20260615_static_*.txt`) are excluded from version control via `.gitignore` for two reasons:
 
 - **Data protection** — logs contain user IP addresses and other request metadata that should not be published in a repository.
 - **File size** — extracted log files can be very large.
