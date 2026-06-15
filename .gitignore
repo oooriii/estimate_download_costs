@@ -9,5 +9,5 @@ wheels/
 # Virtual environments
 .venv
 
-# Logs
+# Log extracts (contain user IPs; large files)
 20260615_downloads_*

@@ -94,7 +94,12 @@ Adapt the handle prefix and output filename for other repositories (e.g. `10256.
 
 ## Data files
 
-Input log files (`20260615_downloads_*.txt`) are excluded from version control via `.gitignore` due to their size. Generate them on the server (see above) and copy them locally to run the analysis.
+Input log files (`20260615_downloads_*.txt`) are excluded from version control via `.gitignore` for two reasons:
+
+- **Data protection** — logs contain user IP addresses and other request metadata that should not be published in a repository.
+- **File size** — extracted log files can be very large.
+
+Generate them on the server (see above) and keep them local to run the analysis.
 
 ## License
 
