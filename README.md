@@ -32,7 +32,25 @@ uv run python main.py analyze --help
 
 ### Pricing configuration
 
-Create a pricing JSON file for region `eu-south-2` (interactive wizard with validated prompts):
+### Generate pricing from cached AWS offers
+
+```bash
+uv run python main.py pricing generate --output pricing/eu-south-2.json --force
+```
+
+This reads `pricing/aws-offers/` and writes a validated `eu-south-2.json`. Use `--download` to refresh AWS offers first:
+
+```bash
+uv run python main.py pricing generate --download --output pricing/eu-south-2.json --force
+```
+
+To regenerate the reference template:
+
+```bash
+uv run python main.py pricing generate --output pricing/templates/eu-south-2.json --force
+```
+
+Interactive wizard (manual overrides):
 
 ```bash
 uv run python main.py pricing init --output pricing/eu-south-2.json
