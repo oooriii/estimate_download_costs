@@ -30,6 +30,38 @@ uv run python main.py --help
 uv run python main.py analyze --help
 ```
 
+### Estimate AWS costs
+
+Project log traffic to a 30-day month and estimate S3 (and optional CloudFront) costs using a pricing config:
+
+```bash
+uv run python main.py estimate 20260615_downloads_ddocs.txt \
+  --storage-gb 5000 \
+  --items 120000
+```
+
+Options:
+
+| Flag | Description |
+|------|-------------|
+| `--storage-gb` | Total stored data volume in GB (required) |
+| `--items` | Number of stored objects, used for Intelligent-Tiering monitoring (required) |
+| `--growth` | Annual growth rate, e.g. `10%` or `0.1` (default: `10%`; reserved for future multi-year projections) |
+| `--pricing` | Pricing JSON file (default: `pricing/eu-south-2.json`) |
+| `--storage-class` | `STANDARD`, `STANDARD_IA`, `INTELLIGENT_TIERING`, or `GLACIER_INSTANT` |
+
+The report shows:
+
+- **Realistic S3 direct** — tiered egress, observed traffic scaled to 30 days
+- **Realistic S3 + CloudFront** — recommended cache hit ratio from pricing config
+- **Conservative worst case** — +20% traffic, first-tier egress only, CloudFront at 0% cache hit; picks the higher annual total between S3 direct and CloudFront
+
+Amounts are shown in USD with indicative EUR (from the pricing file's `display.usd_eur_rate`). This is an estimate, not a billing guarantee.
+
+```bash
+uv run python main.py estimate --help
+```
+
 ### Pricing configuration
 
 ### Generate pricing from cached AWS offers
