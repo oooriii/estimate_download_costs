@@ -1,4 +1,4 @@
-from demand import parse_file_demand
+from demand import parse_file_demand, display_filename
 from export_demand_csv import write_top_files_csv
 
 
@@ -67,6 +67,22 @@ def test_parse_file_demand_all_paths_includes_static_assets(tmp_path):
     assert len(bitstreams_only.files) == 1
     assert len(all_paths.files) == 2
     assert all_paths.other_records == 1
+
+
+def test_display_filename_falls_back_to_path_tail():
+    from demand import FileDemand
+
+    item = FileDemand(
+        path="/bitstream/10256/1/1/example.pdf",
+        item_id="10256/1",
+        filename=None,
+        records=1,
+        bytes=100,
+        unique_ips=1,
+        bot_records=0,
+        human_records=1,
+    )
+    assert display_filename(item) == "example.pdf"
 
 
 def test_write_top_files_csv(tmp_path):
