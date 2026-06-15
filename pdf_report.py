@@ -62,7 +62,11 @@ def write_demand_pdf(
     bitstreams_only: bool = True,
     title: str = "File demand report",
 ) -> None:
-    builder = _PdfBuilder(title=title, subtitle=str(log_file))
+    builder = _PdfBuilder(
+        title=title,
+        subtitle=str(log_file),
+        page_margin=8,
+    )
     _add_demand_sections(
         builder,
         log_file=log_file,
@@ -109,8 +113,16 @@ def write_combined_pdf(
 
 
 class _PdfBuilder:
-    def __init__(self, *, title: str, subtitle: str) -> None:
-        self.pdf = FPDF(orientation="P", unit="mm", format="A4")
+    def __init__(
+        self,
+        *,
+        title: str,
+        subtitle: str,
+        orientation: str = "P",
+        page_margin: float = 10,
+    ) -> None:
+        self.pdf = FPDF(orientation=orientation, unit="mm", format="A4")
+        self.pdf.set_margins(page_margin, page_margin, page_margin)
         self.pdf.set_auto_page_break(auto=True, margin=15)
         self.pdf.add_page()
         self.pdf.set_font("Helvetica", "B", 16)
@@ -128,6 +140,40 @@ class _PdfBuilder:
             new_y="NEXT",
         )
         self.pdf.ln(4)
+
+    def _page_break_limit(self) -> float:
+        return self.pdf.page_break_trigger
+
+    def _cell_lines_for_row(
+        self,
+        cells: tuple[str, ...],
+        widths: tuple[float, ...],
+        line_height: float,
+        *,
+        style: str,
+        size: int,
+        wrap_columns: frozenset[int],
+    ) -> tuple[tuple[str, ...], ...]:
+        return tuple(
+            self._text_lines(
+                value,
+                widths[index],
+                style=style,
+                size=size,
+                line_height=line_height,
+            )
+            if index in wrap_columns
+            else (_pdf_text(value),)
+            for index, value in enumerate(cells)
+        )
+
+    @staticmethod
+    def _row_height_for_lines(
+        cell_lines: tuple[tuple[str, ...], ...],
+        line_height: float,
+    ) -> float:
+        max_lines = max(len(lines) for lines in cell_lines)
+        return max(max_lines * line_height + 1, line_height + 1)
 
     def add_page_break(self) -> None:
         self.pdf.add_page()
@@ -183,16 +229,39 @@ class _PdfBuilder:
             col_widths or _auto_col_widths(headers, rows, self.pdf.epw),
             self.pdf.epw,
         )
+        if col_widths is not None:
+            widths = _expand_col_widths(widths, self.pdf.epw)
         line_height = 5
         wrap = wrap_columns or frozenset()
         draw_row = (
             self._draw_wrapped_table_row if wrap else self._draw_table_row
         )
+
+        def row_height_for(cells: tuple[str, ...], *, header: bool) -> float:
+            if not wrap:
+                return line_height
+            cell_lines = self._cell_lines_for_row(
+                cells,
+                widths,
+                line_height,
+                style="B" if header else "",
+                size=9 if header else 8,
+                wrap_columns=wrap,
+            )
+            return self._row_height_for_lines(cell_lines, line_height)
+
+        def needs_new_page(height: float) -> bool:
+            return self.pdf.get_y() + height > self._page_break_limit()
+
+        header_height = row_height_for(headers, header=True)
+        if needs_new_page(header_height):
+            self.pdf.add_page()
         draw_row(headers, widths, line_height, style="B", size=9, wrap_columns=wrap)
 
         self.pdf.set_font("Helvetica", "", 8)
         for row in rows:
-            if self.pdf.get_y() > 265:
+            height = row_height_for(row, header=False)
+            if needs_new_page(height):
                 self.pdf.add_page()
                 draw_row(
                     headers,
@@ -212,27 +281,25 @@ class _PdfBuilder:
         *,
         style: str,
         size: int,
+        line_height: float,
     ) -> tuple[str, ...]:
         self.pdf.set_font("Helvetica", style, size)
         safe = _pdf_text(text)
         if not safe:
             return ("",)
-        if self.pdf.get_string_width(safe) <= max(width - 2, 1):
+
+        cell_width = max(width - 2, 1)
+        if self.pdf.get_string_width(safe) <= cell_width:
             return (safe,)
 
-        lines: list[str] = []
-        current = ""
-        for char in safe:
-            trial = current + char
-            if self.pdf.get_string_width(trial) <= max(width - 2, 1):
-                current = trial
-            else:
-                if current:
-                    lines.append(current)
-                current = char
-        if current:
-            lines.append(current)
-        return tuple(lines) or ("",)
+        lines = self.pdf.multi_cell(
+            cell_width,
+            line_height,
+            safe,
+            dry_run=True,
+            output="LINES",
+        )
+        return tuple(lines) if lines else ("",)
 
     def _draw_wrapped_table_row(
         self,
@@ -247,28 +314,41 @@ class _PdfBuilder:
         x_start = self.pdf.l_margin
         y_start = self.pdf.get_y()
         cell_lines = tuple(
-            self._text_lines(value, widths[index], style=style, size=size)
+            self._text_lines(
+                value,
+                widths[index],
+                style=style,
+                size=size,
+                line_height=line_height,
+            )
             if index in wrap_columns
             else (_pdf_text(value),)
             for index, value in enumerate(cells)
         )
         max_lines = max(len(lines) for lines in cell_lines)
-        row_height = max_lines * line_height
+        row_height = max(max_lines * line_height + 1, line_height + 1)
 
         x = x_start
         for index, (lines, width) in enumerate(zip(cell_lines, widths, strict=True)):
             self.pdf.rect(x, y_start, width, row_height)
+            self.pdf.set_font("Helvetica", style, size)
             if len(lines) == 1 and index not in wrap_columns:
                 text_y = y_start + (row_height - line_height) / 2
-                self.pdf.set_font("Helvetica", style, size)
                 self.pdf.set_xy(x + 0.5, text_y)
                 self.pdf.cell(width - 1, line_height, lines[0], border=0)
             else:
-                self.pdf.set_font("Helvetica", style, size)
-                self.pdf.set_xy(x + 0.5, y_start + 0.5)
+                text_y = y_start + 0.5
                 for line in lines:
-                    self.pdf.set_x(x + 0.5)
-                    self.pdf.cell(width - 1, line_height, line, border=0)
+                    self.pdf.set_xy(x + 0.5, text_y)
+                    self.pdf.cell(
+                        width - 1,
+                        line_height,
+                        line,
+                        border=0,
+                        new_x=XPos.RIGHT,
+                        new_y=YPos.TOP,
+                    )
+                    text_y += line_height
             x += width
 
         self.pdf.set_xy(x_start, y_start + row_height)
@@ -305,7 +385,7 @@ class _PdfBuilder:
     def add_calculation_block(self, lines: tuple[str, ...]) -> None:
         self.pdf.set_font("Helvetica", "", 8)
         for line in lines:
-            if self.pdf.get_y() > 275:
+            if self.pdf.get_y() > self._page_break_limit() - 10:
                 self.pdf.add_page()
             self.pdf.set_x(self.pdf.l_margin)
             self.pdf.multi_cell(self.pdf.epw, 4.5, _pdf_text(line))
@@ -318,7 +398,7 @@ class _PdfBuilder:
         """Render #, filename, and wrapped full path entries."""
         self.pdf.set_font("Helvetica", "", 8)
         for rank, filename, path in items:
-            if self.pdf.get_y() > 265:
+            if self.pdf.get_y() > self._page_break_limit() - 15:
                 self.pdf.add_page()
             self.pdf.set_x(self.pdf.l_margin)
             self.pdf.set_font("Helvetica", "B", 8)
@@ -423,7 +503,7 @@ def _add_demand_sections(
             "Bot rec.",
         ),
         table_rows,
-        col_widths=(7, 52, 22, 13, 11, 17, 11, 9, 11),
+        col_widths=_demand_table_col_widths(builder.pdf.epw),
         wrap_columns=frozenset({1}),
     )
 
@@ -801,6 +881,23 @@ def _fit_col_widths(
         return widths
     scale = max_width / total
     return tuple(width * scale for width in widths)
+
+
+def _expand_col_widths(
+    widths: tuple[float, ...],
+    max_width: float,
+) -> tuple[float, ...]:
+    total = sum(widths)
+    if total <= 0 or total >= max_width:
+        return widths
+    scale = max_width / total
+    return tuple(width * scale for width in widths)
+
+
+def _demand_table_col_widths(epw: float) -> tuple[float, ...]:
+    """Use full page width; filename gets ~42% of the table."""
+    weights = (0.04, 0.42, 0.13, 0.08, 0.07, 0.11, 0.07, 0.05, 0.03)
+    return tuple(epw * weight for weight in weights)
 
 
 def _format_money_pdf(usd: float, rate: float, show_eur: bool = True) -> str:
