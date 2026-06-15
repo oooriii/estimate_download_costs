@@ -64,6 +64,38 @@ uv run python main.py demand 20260615_downloads_ddocs_anubis.txt --top 25
 | `--pdf` / `--no-pdf` | PDF output path or skip PDF |
 | `--csv` / `--no-csv` | CSV output path or skip CSV |
 
+### Static asset demand report
+
+Analyze CSS, JS, fonts, and image requests extracted from full access logs. The parser streams line-by-line (safe for multi-GB files) and groups paths by category: theme assets, bitstream images (covers/thumbnails), and other static files.
+
+**DSpace version:** theme path rules (`/static/`, `/handle/static/`, `loadJQuery.js`, discovery CSS/JS, etc.) are written for **DSpace 5.x**, matching DUGi Fons Especials and DUGi-Doc. Classification for **DSpace 7.x–10.x** (different theme and asset URLs) is future work; counts and byte totals still work for any log extract.
+
+By default writes:
+
+- `reports/top-static-files.csv`
+- `reports/static-daily.csv`
+- `reports/static-summary.csv`
+
+```bash
+uv run python main.py static 20260615_static_dfe.txt --top 50
+```
+
+| Flag | Description |
+|------|-------------|
+| `--top` | Top N paths in terminal and files CSV (default: `25`) |
+| `--projection-mode` | `simple` (30-day month, default) or `calendar` |
+| `--output-dir` | Default directory for CSV exports (default: `reports/`) |
+| `--csv` / `--csv-daily` / `--csv-summary` | Override export paths |
+| `--no-csv` | Skip CSV exports |
+
+Extract static lines on the server (example for DFE):
+
+```bash
+sudo zgrep -E '\.(css|js|woff2?|ttf|eot|svg|png|jpe?g|gif|webp|ico) HTTP' \
+  /var/log/apache2/access_ssl.log* \
+  | grep 'HTTP/1.1" 200' > /home/pencaire/20260615_static_dfe.txt
+```
+
 ### Management report (PDF + CSV)
 
 Combined report: traffic analysis, bots, countries, AWS cost estimate, and optional storage-class comparison. By default writes:
