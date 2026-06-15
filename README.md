@@ -78,6 +78,23 @@ Cached files:
 | `amazon-cloudfront-eu.json` | CloudFront SKUs with `EU-*` usage types |
 | `manifest.json` | Download timestamp and source URLs |
 
+### Automated quarterly refresh (GitHub Actions)
+
+The workflow [`.github/workflows/update-aws-pricing.yml`](.github/workflows/update-aws-pricing.yml) runs on the **1st of January, April, July, and October** (06:00 UTC). It:
+
+1. Runs the test suite
+2. Downloads fresh AWS offer files into `pricing/aws-offers/`
+3. Regenerates `pricing/templates/eu-south-2.json`
+4. Opens a pull request **only if** AWS prices changed
+
+It does **not** modify `pricing/eu-south-2.json` (your local/working config). After merging a pricing PR, refresh your config manually if needed:
+
+```bash
+uv run python main.py pricing generate --output pricing/eu-south-2.json --force
+```
+
+You can also trigger the workflow manually from the GitHub Actions tab (**Run workflow**).
+
 AWS prices are stored in **USD** (how AWS bills). The wizard also asks for a **USD/EUR rate** to display indicative EUR amounts. The default rate is `0.92` and triggers a warning — update it to match current exchange rates.
 
 A starter template is available at `pricing/templates/eu-south-2.json` for reference; use `pricing init` to create a validated config file. Use `pricing download-offers` to refresh the cached AWS JSON files when AWS updates prices.
@@ -155,12 +172,16 @@ Input log files (`20260615_downloads_*.txt`) are excluded from version control v
 
 Generate them on the server (see above) and keep them local to run the analysis.
 
-## Tests
+## Tests and CI
 
 ```bash
 uv sync --group dev
+uv run ruff check .
+uv run ruff format --check .
 uv run pytest
 ```
+
+GitHub Actions runs the same checks on every push and pull request to `main` (see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
 ## License
 
