@@ -2,9 +2,15 @@ from datetime import UTC, date, datetime
 
 import pytest
 
-from cost_model import Inventory, build_estimates, calculate_s3_direct
+from cost_model import (
+    Inventory,
+    build_estimates,
+    calculate_s3_direct,
+    compare_storage_classes,
+)
 from parser import TrafficStats
 from pricing.schema import (
+    STORAGE_CLASSES,
     CloudFrontPricing,
     DisplayConfig,
     PriceTier,
@@ -98,3 +104,31 @@ def test_projected_traffic_used_in_estimates(pricing_config, sample_stats):
     )
     assert traffic.monthly_requests > 0
     assert result.realistic_s3.monthly_total > 0
+
+
+def test_compare_storage_classes_covers_all_classes(pricing_config, sample_stats):
+    inventory = Inventory(storage_gb=1000, items=10_000)
+    comparisons = compare_storage_classes(
+        sample_stats,
+        inventory,
+        pricing_config,
+        STORAGE_CLASSES,
+    )
+
+    assert len(comparisons) == len(STORAGE_CLASSES)
+    assert {item.name for item in comparisons} == set(STORAGE_CLASSES)
+
+
+def test_compare_storage_classes_glacier_is_cheapest_storage(
+    pricing_config, sample_stats
+):
+    inventory = Inventory(storage_gb=10_000, items=100_000)
+    comparisons = compare_storage_classes(
+        sample_stats,
+        inventory,
+        pricing_config,
+        STORAGE_CLASSES,
+    )
+    by_name = {item.name: item for item in comparisons}
+
+    assert by_name["GLACIER_INSTANT"].monthly_total < by_name["STANDARD"].monthly_total
