@@ -72,9 +72,29 @@ stats = parse_file(Path("20260615_downloads_ddocs.txt"))
 print(stats.min_date, stats.max_date, stats.total_records, stats.total_bytes)
 ```
 
+## Generating input files
+
+Input files are extracted from Apache access logs on the server. Example for DUGi-Doc (`ddocs`):
+
+```bash
+sudo zgrep '/bitstream/handle/10256' /var/log/apache2/access_ssl* \
+  | grep 'HTTP/1.1" 200' > /home/pencaire/20260615_downloads_ddocs.txt
+```
+
+The command does two things:
+
+1. **`zgrep '/bitstream/handle/10256'`** — selects log lines for DSpace bitstream downloads (handles starting with `10256`).
+2. **`grep 'HTTP/1.1" 200'`** — keeps only successful responses (HTTP 200).
+
+The HTTP 200 filter is intentional: we only count **real, completed downloads**. Redirects (3xx), missing files (404), server errors (5xx), and other non-success responses are excluded so byte totals reflect actual transferred data.
+
+`zgrep` is used so both plain and rotated/compressed logs (`access_ssl.log`, `access_ssl.log.1.gz`, etc.) are searched.
+
+Adapt the handle prefix and output filename for other repositories (e.g. `10256.2` for DFE).
+
 ## Data files
 
-Input log files (`20260615_downloads_*.txt`) are excluded from version control via `.gitignore` due to their size. You need them locally to run the analysis.
+Input log files (`20260615_downloads_*.txt`) are excluded from version control via `.gitignore` due to their size. Generate them on the server (see above) and copy them locally to run the analysis.
 
 ## License
 
