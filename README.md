@@ -32,6 +32,8 @@ uv run python main.py analyze 20260615_downloads_ddocs.txt \
 
 The analyze command also reports bot vs human traffic (from user-agent heuristics), top clients by IP and user-agent (with abuse highlighting), and optionally traffic by country. Use `--abuse-top` and `--abuse-min-bytes-pct` to tune the abuse tables.
 
+The country table shows records and bytes per country (top 15 plus an “Other” row). Use this to see how much traffic comes from outside your target region before configuring CloudFront geo restrictions.
+
 Export an analysis PDF or a CSV of problematic IPs:
 
 ```bash
@@ -41,15 +43,46 @@ uv run python main.py analyze 20260615_downloads_ddocs.txt \
   --csv-ips reports/problematic-ips.csv
 ```
 
-Combined management report (traffic + bots + countries + AWS cost estimate + storage comparison):
+### Management report (PDF + CSV)
+
+Combined report: traffic analysis, bots, countries, AWS cost estimate, and optional storage-class comparison. By default writes:
+
+- `<output-dir>/<log>-report.pdf`
+- `<output-dir>/<log>-ips.csv`
+
+(`output-dir` defaults to `reports/`.)
 
 ```bash
 uv run python main.py report 20260615_downloads_ddocs.txt \
-  --pdf reports/management-report.pdf \
-  --csv-ips reports/problematic-ips.csv \
-  --geoip-db /path/to/GeoLite2-Country.mmdb \
   --storage-gb 5000 \
   --items 120000 \
+  --geoip-db /path/to/GeoLite2-Country.mmdb \
+  --compare-storage-classes \
+  --forecast-years 3
+```
+
+| Flag | Description |
+|------|-------------|
+| `--storage-gb` | Total stored data volume in GB (required) |
+| `--items` | Number of stored objects (required) |
+| `--geoip-db` | GeoLite2-Country.mmdb for country breakdown (auto-detected in cwd if omitted) |
+| `--output-dir` | Directory for PDF and CSV outputs (default: `reports/`) |
+| `--pdf` | PDF output path (default: `<output-dir>/<log>-report.pdf`) |
+| `--csv-ips` | CSV output path (default: `<output-dir>/<log>-ips.csv`) |
+| `--no-csv-ips` | Skip CSV export |
+| `--growth` | Annual growth rate (default: `10%`) |
+| `--forecast-years` | Multi-year forecast in PDF (default: `0` = hide) |
+| `--compare-storage-classes` | Include storage-class comparison (omit value to compare all) |
+| `--abuse-top` | Top N IPs and user-agents in PDF (default: `15`) |
+| `--abuse-min-bytes-pct` | Abuse threshold for CSV highlighting (default: `5`) |
+
+Example for the current DUGi-Doc assetstore (202 GB, 26,768 items, 10% growth):
+
+```bash
+uv run python main.py report 20260615_downloads_ddocs_anubis.txt \
+  --storage-gb 202 \
+  --items 26768 \
+  --geoip-db GeoLite2-Country_20260612/GeoLite2-Country.mmdb \
   --compare-storage-classes \
   --forecast-years 3
 ```
@@ -69,6 +102,7 @@ Help:
 ```bash
 uv run python main.py --help
 uv run python main.py analyze --help
+uv run python main.py report --help
 ```
 
 ### Estimate AWS costs
