@@ -26,9 +26,9 @@ TIMESTAMP_FORMAT = "%d/%b/%Y:%H:%M:%S %z"
 @dataclass
 class LogLine:
     """
-    Línia de log Apache amb prefix de fitxer d'origen.
+    Apache log line with a source log file prefix.
 
-    Exemple:
+    Example:
     /var/log/apache2/access_ssl_anubis.log:- - - [15/Jun/2026:06:26:23 +0200] "GET /bitstream/handle/10256/23347/TobosoSalaElisabet_Annexos.pdf?sequence=2&isAllowed=y HTTP/1.1" 200 11555603 "-" "Mozilla/5.0 ..."
     """
 
@@ -88,8 +88,8 @@ def format_bytes(size: int) -> str:
 
 def parse_file(file_path: Path, progress: Progress | None = None) -> FileStats:
     """
-    Parseja un fitxer en format de log Apache i retorna estadístiques agregades:
-    data mínima i màxima, nombre total de registres i bytes descarregats.
+    Parse an Apache log file and return aggregated statistics:
+    min/max date, total record count, and total bytes downloaded.
     """
     min_date: datetime | None = None
     max_date: datetime | None = None
@@ -98,7 +98,7 @@ def parse_file(file_path: Path, progress: Progress | None = None) -> FileStats:
 
     task_id = None
     if progress is not None:
-        task_id = progress.add_task("Parsejant log...", total=None)
+        task_id = progress.add_task("Parsing log...", total=None)
 
     with file_path.open(encoding="utf-8") as file:
         for line in file:
@@ -127,28 +127,28 @@ def parse_file(file_path: Path, progress: Progress | None = None) -> FileStats:
 
 def print_stats(console: Console, file_path: Path, stats: FileStats) -> None:
     table = Table(show_header=False, box=None, padding=(0, 2))
-    table.add_column("Camp", style="bold cyan")
-    table.add_column("Valor")
+    table.add_column("Field", style="bold cyan")
+    table.add_column("Value")
 
-    table.add_row("Fitxer", str(file_path))
-    table.add_row("Data mínima", str(stats.min_date) if stats.min_date else "—")
-    table.add_row("Data màxima", str(stats.max_date) if stats.max_date else "—")
-    table.add_row("Registres", f"{stats.total_records:,}")
-    table.add_row("Bytes descarregats", format_bytes(stats.total_bytes))
+    table.add_row("File", str(file_path))
+    table.add_row("Min date", str(stats.min_date) if stats.min_date else "—")
+    table.add_row("Max date", str(stats.max_date) if stats.max_date else "—")
+    table.add_row("Records", f"{stats.total_records:,}")
+    table.add_row("Bytes downloaded", format_bytes(stats.total_bytes))
 
     console.print(
-        Panel(table, title="[bold]Resultats de l'estudi[/bold]", border_style="green")
+        Panel(table, title="[bold]Study results[/bold]", border_style="green")
     )
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Analitza fitxers de log Apache i calcula estadístiques de descàrrega.",
+        description="Analyze Apache log files and compute download statistics.",
     )
     parser.add_argument(
         "file",
         type=Path,
-        help="Fitxer de log d'entrada",
+        help="Input log file",
     )
     return parser
 
@@ -158,14 +158,14 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
     if not args.file.is_file():
-        console.print(f"[red]Error:[/red] el fitxer '{args.file}' no existeix.")
+        console.print(f"[red]Error:[/red] file '{args.file}' does not exist.")
         return 1
 
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
         BarColumn(bar_width=40),
-        TextColumn("{task.completed:,} registres"),
+        TextColumn("{task.completed:,} records"),
         console=console,
         transient=True,
     ) as progress:
@@ -173,7 +173,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if stats.total_records == 0:
         console.print(
-            f"[yellow]Avís:[/yellow] no s'ha trobat cap registre vàlid a '{args.file}'."
+            f"[yellow]Warning:[/yellow] no valid records found in '{args.file}'."
         )
         return 1
 
