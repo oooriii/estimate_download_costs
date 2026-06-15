@@ -7,7 +7,9 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 
 from abuse import parse_log
 from estimate_cli import register_estimate_command
+from export_csv import write_problematic_ips_csv
 from geo import MaxMindGeoIpResolver, open_geoip_resolver
+from pdf_report import write_analyze_pdf
 from pricing_cli import register_pricing_commands
 from report import (
     print_bot_summary,
@@ -16,6 +18,7 @@ from report import (
     print_top_user_agents,
     print_traffic_stats,
 )
+from report_cli import register_report_command
 
 
 def cmd_analyze(args: argparse.Namespace) -> int:
@@ -35,6 +38,10 @@ def cmd_analyze(args: argparse.Namespace) -> int:
 
     if args.abuse_min_bytes_pct < 0:
         console.print("[red]Error:[/red] --abuse-min-bytes-pct must be >= 0.")
+        return 1
+
+    if args.csv_ips_top < 0:
+        console.print("[red]Error:[/red] --csv-ips-top must be >= 0.")
         return 1
 
     resolver = None
@@ -97,6 +104,41 @@ def cmd_analyze(args: argparse.Namespace) -> int:
             total_bytes=stats.total_bytes,
             top=args.countries_top,
         )
+
+    if args.pdf is not None:
+        try:
+            write_analyze_pdf(
+                args.pdf,
+                log_file=args.file,
+                result=result,
+                abuse_top=args.abuse_top,
+                countries_top=args.countries_top,
+                abuse_min_bytes_pct=args.abuse_min_bytes_pct,
+            )
+        except OSError as exc:
+            console.print(f"[red]Error:[/red] could not write PDF: {exc}")
+            return 1
+        console.print(f"[green]PDF report written to[/green] {args.pdf}")
+
+    if args.csv_ips is not None:
+        csv_limit = args.csv_ips_top or None
+        try:
+            row_count = write_problematic_ips_csv(
+                args.csv_ips,
+                result.ips,
+                total_records=stats.total_records,
+                total_bytes=stats.total_bytes,
+                min_bytes_pct=args.abuse_min_bytes_pct,
+                limit=csv_limit,
+            )
+        except OSError as exc:
+            console.print(f"[red]Error:[/red] could not write CSV: {exc}")
+            return 1
+        console.print(
+            f"[green]Problematic IP CSV written to[/green] {args.csv_ips} "
+            f"({row_count} rows)"
+        )
+
     return 0
 
 
@@ -138,8 +180,28 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="PCT",
         help="Highlight clients at or above this %% of records or bytes (default: 5)",
     )
+    analyze.add_argument(
+        "--pdf",
+        type=Path,
+        metavar="PATH",
+        help="Write an analysis PDF report to this path",
+    )
+    analyze.add_argument(
+        "--csv-ips",
+        type=Path,
+        metavar="PATH",
+        help="Write problematic client IPs to a CSV file",
+    )
+    analyze.add_argument(
+        "--csv-ips-top",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Max rows in --csv-ips output (0 = all abusive IPs, default)",
+    )
     analyze.set_defaults(func=cmd_analyze)
 
+    register_report_command(subparsers)
     register_pricing_commands(subparsers)
     register_estimate_command(subparsers)
 

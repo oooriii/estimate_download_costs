@@ -9,6 +9,7 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 from cost_model import Inventory, build_estimates, compare_storage_classes
 from estimate_report import print_estimate_report, print_storage_class_comparison
 from parser import parse_file
+from pdf_report import EstimatePdfContext, write_estimate_pdf
 from pricing.loader import load_pricing_config
 from pricing.schema import DEFAULT_GROWTH_RATE, STORAGE_CLASSES
 from projection import PROJECTION_MODES, project_traffic
@@ -92,6 +93,12 @@ def register_estimate_command(subparsers: argparse._SubParsersAction) -> None:
             "Compare S3 direct costs across storage classes "
             "(comma-separated; omit value to compare all)"
         ),
+    )
+    estimate.add_argument(
+        "--pdf",
+        type=Path,
+        metavar="PATH",
+        help="Write a cost estimate PDF report to this path",
     )
     estimate.set_defaults(func=cmd_estimate)
 
@@ -196,5 +203,28 @@ def cmd_estimate(args: argparse.Namespace) -> int:
             comparisons=comparisons,
             selected_storage_class=args.storage_class,
         )
+    else:
+        comparisons = None
+
+    if args.pdf is not None:
+        try:
+            write_estimate_pdf(
+                args.pdf,
+                log_file=args.file,
+                context=EstimatePdfContext(
+                    pricing=pricing,
+                    traffic=traffic,
+                    result=result,
+                    selected_storage_class=args.storage_class,
+                    growth_rate=growth_rate,
+                    forecast_years=args.forecast_years,
+                    storage_comparisons=comparisons,
+                    pricing_warnings=tuple(pricing_warnings),
+                ),
+            )
+        except OSError as exc:
+            console.print(f"[red]Error:[/red] could not write PDF: {exc}")
+            return 1
+        console.print(f"[green]PDF report written to[/green] {args.pdf}")
 
     return 0
