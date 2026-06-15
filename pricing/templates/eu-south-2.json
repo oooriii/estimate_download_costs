@@ -10,33 +10,66 @@
   "sources": {
     "s3": "https://aws.amazon.com/s3/pricing/",
     "cloudfront": "https://aws.amazon.com/cloudfront/pricing/",
-    "region": "https://aws.amazon.com/about-aws/global-infrastructure/regions_az/"
+    "region": "https://aws.amazon.com/about-aws/global-infrastructure/regions_az/",
+    "aws_offer_cache": "pricing/aws-offers/"
   },
   "s3": {
     "storage_per_gb_month": {
-      "STANDARD": 0.0255,
-      "STANDARD_IA": 0.014,
-      "INTELLIGENT_TIERING": 0.0255,
-      "GLACIER_INSTANT": 0.0045
+      "STANDARD": 0.023,
+      "STANDARD_IA": 0.0125,
+      "INTELLIGENT_TIERING": 0.023,
+      "GLACIER_INSTANT": 0.005
     },
     "intelligent_tiering_monitoring_per_1000_objects": 0.0025,
     "requests_per_1000": {
-      "GET": 0.00043,
-      "PUT": 0.0054,
-      "LIST": 0.0054
+      "GET": 0.00039999999999999996,
+      "PUT": 0.0053,
+      "LIST": 0.0053
     },
     "data_transfer_out_per_gb": [
-      { "up_to_gb": 10240, "price": 0.09 },
-      { "up_to_gb": null, "price": 0.085 }
+      {
+        "up_to_gb": 10240,
+        "price": 0.09
+      },
+      {
+        "up_to_gb": null,
+        "price": 0.085
+      }
     ]
   },
   "cloudfront": {
     "data_transfer_out_per_gb": [
-      { "up_to_gb": 10240, "price": 0.085 },
-      { "up_to_gb": null, "price": 0.08 }
+      {
+        "up_to_gb": 10240.0,
+        "price": 0.085
+      },
+      {
+        "up_to_gb": 51200.0,
+        "price": 0.08
+      },
+      {
+        "up_to_gb": 153600.0,
+        "price": 0.06
+      },
+      {
+        "up_to_gb": 512000.0,
+        "price": 0.04
+      },
+      {
+        "up_to_gb": 1048576.0,
+        "price": 0.03
+      },
+      {
+        "up_to_gb": 5242880.0,
+        "price": 0.025
+      },
+      {
+        "up_to_gb": null,
+        "price": 0.02
+      }
     ],
     "requests_per_10000": {
-      "GET": 0.0075
+      "GET": 0.012
     },
     "recommended_cache_hit_ratio": 0.85
   }
