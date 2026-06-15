@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import ipaddress
-from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from parser import LogLine, TrafficStats, iter_log_lines
+from parser import LogLine, TrafficStats
 
 UNKNOWN_COUNTRY_CODE = "??"
 UNKNOWN_COUNTRY_NAME = "Unknown"
@@ -105,51 +104,11 @@ def parse_with_countries(
     *,
     progress: object | None = None,
 ) -> tuple[TrafficStats, tuple[CountryTraffic, ...]]:
-    min_date = None
-    max_date = None
-    total_records = 0
-    total_bytes = 0
-    by_country: dict[tuple[str, str], list[int]] = defaultdict(lambda: [0, 0])
+    from abuse import parse_log
 
-    task_id = None
-    if progress is not None:
-        task_id = progress.add_task("Parsing log...", total=None)
-
-    for log_line in iter_log_lines(file_path):
-        total_records += 1
-        total_bytes += log_line.bytes_sent
-
-        if min_date is None or log_line.timestamp < min_date:
-            min_date = log_line.timestamp
-        if max_date is None or log_line.timestamp > max_date:
-            max_date = log_line.timestamp
-
-        country_code, country_name = country_for_line(log_line, geo_resolver)
-        bucket = by_country[(country_code, country_name)]
-        bucket[0] += 1
-        bucket[1] += log_line.bytes_sent
-
-        if progress is not None and task_id is not None:
-            progress.update(task_id, completed=total_records)
-
-    countries = tuple(
-        CountryTraffic(
-            country_code=code,
-            country_name=name,
-            records=values[0],
-            bytes=values[1],
-        )
-        for (code, name), values in by_country.items()
-    )
-    countries = sort_countries(countries)
-
-    stats = TrafficStats(
-        min_date=min_date,
-        max_date=max_date,
-        total_records=total_records,
-        total_bytes=total_bytes,
-    )
-    return stats, countries
+    result = parse_log(file_path, geo_resolver=geo_resolver, progress=progress)
+    assert result.countries is not None
+    return result.stats, result.countries
 
 
 def country_for_line(

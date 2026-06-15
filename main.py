@@ -5,11 +5,17 @@ from pathlib import Path
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 
+from abuse import parse_log
 from estimate_cli import register_estimate_command
-from geo import MaxMindGeoIpResolver, open_geoip_resolver, parse_with_countries
-from parser import parse_file
+from geo import MaxMindGeoIpResolver, open_geoip_resolver
 from pricing_cli import register_pricing_commands
-from report import print_country_breakdown, print_traffic_stats
+from report import (
+    print_bot_summary,
+    print_country_breakdown,
+    print_top_ips,
+    print_top_user_agents,
+    print_traffic_stats,
+)
 
 
 def cmd_analyze(args: argparse.Namespace) -> int:
@@ -23,6 +29,22 @@ def cmd_analyze(args: argparse.Namespace) -> int:
         console.print("[red]Error:[/red] --countries-top must be >= 0.")
         return 1
 
+    if args.abuse_top < 0:
+        console.print("[red]Error:[/red] --abuse-top must be >= 0.")
+        return 1
+
+    if args.abuse_min_bytes_pct < 0:
+        console.print("[red]Error:[/red] --abuse-min-bytes-pct must be >= 0.")
+        return 1
+
+    resolver = None
+    if args.geoip_db is not None:
+        try:
+            resolver = open_geoip_resolver(args.geoip_db)
+        except (OSError, RuntimeError, ValueError) as exc:
+            console.print(f"[red]Error:[/red] {exc}")
+            return 1
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -31,25 +53,13 @@ def cmd_analyze(args: argparse.Namespace) -> int:
         console=console,
         transient=True,
     ) as progress:
-        if args.geoip_db is not None:
-            try:
-                resolver = open_geoip_resolver(args.geoip_db)
-            except (OSError, RuntimeError, ValueError) as exc:
-                console.print(f"[red]Error:[/red] {exc}")
-                return 1
-            try:
-                stats, countries = parse_with_countries(
-                    args.file,
-                    resolver,
-                    progress=progress,
-                )
-            finally:
-                if isinstance(resolver, MaxMindGeoIpResolver):
-                    resolver.close()
-        else:
-            stats = parse_file(args.file, progress=progress)
-            countries = None
+        try:
+            result = parse_log(args.file, geo_resolver=resolver, progress=progress)
+        finally:
+            if isinstance(resolver, MaxMindGeoIpResolver):
+                resolver.close()
 
+    stats = result.stats
     if stats.total_records == 0:
         console.print(
             f"[yellow]Warning:[/yellow] no valid records found in '{args.file}'."
@@ -57,10 +67,32 @@ def cmd_analyze(args: argparse.Namespace) -> int:
         return 1
 
     print_traffic_stats(console, args.file, stats)
-    if countries is not None:
+    print_bot_summary(
+        console,
+        result.bot_traffic,
+        total_records=stats.total_records,
+        total_bytes=stats.total_bytes,
+    )
+    print_top_ips(
+        console,
+        result.ips,
+        total_records=stats.total_records,
+        total_bytes=stats.total_bytes,
+        top=args.abuse_top,
+        min_bytes_pct=args.abuse_min_bytes_pct,
+    )
+    print_top_user_agents(
+        console,
+        result.user_agents,
+        total_records=stats.total_records,
+        total_bytes=stats.total_bytes,
+        top=args.abuse_top,
+        min_bytes_pct=args.abuse_min_bytes_pct,
+    )
+    if result.countries is not None:
         print_country_breakdown(
             console,
-            countries,
+            result.countries,
             total_records=stats.total_records,
             total_bytes=stats.total_bytes,
             top=args.countries_top,
@@ -91,6 +123,20 @@ def build_parser() -> argparse.ArgumentParser:
         default=15,
         metavar="N",
         help="Show top N countries plus an Other row (default: 15)",
+    )
+    analyze.add_argument(
+        "--abuse-top",
+        type=int,
+        default=15,
+        metavar="N",
+        help="Show top N IPs and user-agents by traffic volume (default: 15)",
+    )
+    analyze.add_argument(
+        "--abuse-min-bytes-pct",
+        type=float,
+        default=5.0,
+        metavar="PCT",
+        help="Highlight clients at or above this %% of records or bytes (default: 5)",
     )
     analyze.set_defaults(func=cmd_analyze)
 
