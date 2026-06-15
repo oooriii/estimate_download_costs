@@ -1,4 +1,5 @@
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -76,6 +77,14 @@ class TrafficStats:
 FileStats = TrafficStats
 
 
+def iter_log_lines(file_path: Path) -> Iterator[LogLine]:
+    with file_path.open(encoding="utf-8") as file:
+        for line in file:
+            log_line = LogLine.from_line(line)
+            if log_line is not None:
+                yield log_line
+
+
 def parse_file(file_path: Path, progress: Progress | None = None) -> TrafficStats:
     """
     Parse an Apache log file and return aggregated traffic statistics:
@@ -90,22 +99,17 @@ def parse_file(file_path: Path, progress: Progress | None = None) -> TrafficStat
     if progress is not None:
         task_id = progress.add_task("Parsing log...", total=None)
 
-    with file_path.open(encoding="utf-8") as file:
-        for line in file:
-            log_line = LogLine.from_line(line)
-            if log_line is None:
-                continue
+    for log_line in iter_log_lines(file_path):
+        total_records += 1
+        total_bytes += log_line.bytes_sent
 
-            total_records += 1
-            total_bytes += log_line.bytes_sent
+        if min_date is None or log_line.timestamp < min_date:
+            min_date = log_line.timestamp
+        if max_date is None or log_line.timestamp > max_date:
+            max_date = log_line.timestamp
 
-            if min_date is None or log_line.timestamp < min_date:
-                min_date = log_line.timestamp
-            if max_date is None or log_line.timestamp > max_date:
-                max_date = log_line.timestamp
-
-            if progress is not None and task_id is not None:
-                progress.update(task_id, completed=total_records)
+        if progress is not None and task_id is not None:
+            progress.update(task_id, completed=total_records)
 
     return TrafficStats(
         min_date=min_date,
