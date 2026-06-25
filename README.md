@@ -71,12 +71,25 @@ snapshots:
 | `--min-rps-ip` | Flag IP at or above this sustained RPS (default: `2`) |
 | `--snapshot-dir` / `--snapshot-every` | Periodic snapshot export during live mode |
 | `--export-csv` / `--export-json` | Export block recommendations (batch mode) |
+| `--export-country-cidrs DIR` | Export all official GeoLite2 CIDRs for flagged countries |
 
 The live dashboard shows top IPs (with peak burst RPS), user-agents, countries, and **suggested blocks**.
 Burst detection helps catch short scraping floods that might not yet dominate the full window.
-Country blocks are intended for CloudFront geo restrictions or WAF; subnet and IP
-blocks for firewall or mod_security. Subnet ranges are derived from observed
-abusive traffic in the sliding window.
+
+**Blocking strategies:**
+
+| Type | Source | Use for |
+|------|--------|---------|
+| `country` | Traffic + GeoIP | CloudFront geo restriction, WAF |
+| `country_cidr` | GeoLite2-Country-Blocks CSV | Firewall, ipset, mod_security |
+| `subnet` | Observed /24 clusters in logs | Targeted blocks for active abuse |
+| `ip` | Individual abusive clients | Surgical block |
+
+Official country CIDR files are auto-detected next to `--geoip-db` when
+`GeoLite2-Country-Locations-en.csv` and `GeoLite2-Country-Blocks-IPv4.csv` exist
+(download the full GeoLite2 Country CSV archive from MaxMind, not just the `.mmdb`).
+The dashboard shows the largest official prefixes; use `--export-country-cidrs` or
+snapshots to export the complete list for firewall rules.
 
 ### Analyze logs
 
