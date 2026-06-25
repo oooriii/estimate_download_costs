@@ -27,37 +27,53 @@ protect server stability rather than analyze download bytes.
 
 ```bash
 ssh user@server 'sudo tail -F /var/log/apache2/access_ssl.log /var/log/apache2/error_ssl.log' \
-  | uv run python main.py watch --geoip-db GeoLite2-Country_20260612/GeoLite2-Country.mmdb
+  | uv run python main.py watch --config watch.example.yaml
 ```
 
 Or use the helper script:
 
 ```bash
 chmod +x scripts/remote-watch.sh
-./scripts/remote-watch.sh user@server
+GEOIP_DB=GeoLite2-Country_20260612/GeoLite2-Country.mmdb ./scripts/remote-watch.sh user@server
 ```
 
 **Batch analysis** (local files or stdin):
 
 ```bash
 uv run python main.py watch --no-live access_ssl.log error_ssl.log \
-  --geoip-db GeoLite2-Country_20260612/GeoLite2-Country.mmdb \
+  --config watch.example.yaml \
   --export-csv reports/blocks.csv
+```
+
+**YAML config** (`watch.example.yaml`):
+
+```yaml
+geoip_db: GeoLite2-Country_20260612/GeoLite2-Country.mmdb
+thresholds:
+  burst_window_seconds: 3      # group rapid requests as one incident
+  min_burst_rps: 10            # flag short bursts even if sustained RPS is low
+  min_rps_per_country: 10
+snapshots:
+  directory: reports/live
+  every_seconds: 900           # periodic JSON + CSV during live monitoring
 ```
 
 | Flag | Description |
 |------|-------------|
+| `--config` | YAML config file (CLI flags override when provided) |
 | `--geoip-db` | GeoLite2-Country.mmdb for country breakdown and block suggestions |
 | `--live` / `--no-live` | Rich live dashboard (default: live) |
 | `--window` | Sliding window in seconds for RPS (default: `300`) |
-| `--min-rps-country` | Flag country at or above this RPS (default: `10`) |
-| `--min-rps-subnet` | Flag /24 subnet at or above this RPS (default: `5`) |
-| `--min-rps-ip` | Flag IP at or above this RPS (default: `2`) |
-| `--min-req-country` | Minimum requests in window to flag a country (default: `200`) |
-| `--subnet-v4` | IPv4 grouping mask (default: `24`) |
+| `--burst-window` | Group requests within N seconds as one burst (default: `3`) |
+| `--min-burst-rps` | Flag actor when a burst reaches this RPS (default: `10`) |
+| `--min-rps-country` | Flag country at or above this sustained RPS (default: `10`) |
+| `--min-rps-subnet` | Flag /24 subnet at or above this sustained RPS (default: `5`) |
+| `--min-rps-ip` | Flag IP at or above this sustained RPS (default: `2`) |
+| `--snapshot-dir` / `--snapshot-every` | Periodic snapshot export during live mode |
 | `--export-csv` / `--export-json` | Export block recommendations (batch mode) |
 
-The live dashboard shows top IPs, user-agents, countries, and **suggested blocks**.
+The live dashboard shows top IPs (with peak burst RPS), user-agents, countries, and **suggested blocks**.
+Burst detection helps catch short scraping floods that might not yet dominate the full window.
 Country blocks are intended for CloudFront geo restrictions or WAF; subnet and IP
 blocks for firewall or mod_security. Subnet ranges are derived from observed
 abusive traffic in the sliding window.
