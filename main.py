@@ -7,6 +7,7 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 
 from abuse import parse_log
 from consolidate_cli import register_consolidate_command
+from ruleset_cli import register_ruleset_command
 from demand_cli import register_demand_command
 from estimate_cli import register_estimate_command
 from export_csv import write_problematic_ips_csv
@@ -212,6 +213,7 @@ def build_parser() -> argparse.ArgumentParser:
     register_estimate_command(subparsers)
     register_watch_command(subparsers)
     register_consolidate_command(subparsers)
+    register_ruleset_command(subparsers)
 
     return parser
 

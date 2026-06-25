@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import csv
 import ipaddress
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 from pathlib import Path
 
 from geo import GeoIpResolver, classify_remote_host
-from watch.subnet import collapse_subnets
+from watch.subnet import collapse_host_ips, collapse_subnets
 
 
 @dataclass(frozen=True)
@@ -54,6 +55,15 @@ def _country_for_ip(ip: str, geo_resolver: GeoIpResolver | None) -> tuple[str, s
     return "??", "Unknown"
 
 
+def _count_ips_in_network(
+    sorted_ip_ints: list[int],
+    network: ipaddress._BaseNetwork,
+) -> int:
+    lo = bisect_left(sorted_ip_ints, int(network.network_address))
+    hi = bisect_right(sorted_ip_ints, int(network.broadcast_address))
+    return hi - lo
+
+
 def consolidate_ips(
     ips: list[str],
     *,
@@ -77,12 +87,13 @@ def consolidate_ips(
 
         ranges: list[ConsolidatedRange] = []
         for (code, name), country_ips in sorted(by_country.items()):
-            cidrs = collapse_subnets(country_ips)
+            cidrs = collapse_host_ips(country_ips)
+            country_ip_ints = sorted(
+                int(ipaddress.ip_address(ip)) for ip in country_ips
+            )
             for cidr in cidrs:
                 network = ipaddress.ip_network(cidr, strict=False)
-                covered = sum(
-                    1 for ip in country_ips if ipaddress.ip_address(ip) in network
-                )
+                covered = _count_ips_in_network(country_ip_ints, network)
                 ranges.append(
                     ConsolidatedRange(
                         country_code=code,
@@ -92,13 +103,12 @@ def consolidate_ips(
                     )
                 )
     else:
-        cidrs = collapse_subnets(unique_ips)
+        cidrs = collapse_host_ips(unique_ips)
+        unique_ip_ints = sorted(int(ipaddress.ip_address(ip)) for ip in unique_ips)
         ranges = []
         for cidr in cidrs:
             network = ipaddress.ip_network(cidr, strict=False)
-            covered = sum(
-                1 for ip in unique_ips if ipaddress.ip_address(ip) in network
-            )
+            covered = _count_ips_in_network(unique_ip_ints, network)
             ranges.append(
                 ConsolidatedRange(
                     country_code="*",
