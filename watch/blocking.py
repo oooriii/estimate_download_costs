@@ -5,9 +5,10 @@ from typing import Literal
 
 from watch.aggregator import WatchSnapshot
 from watch.config import WatchThresholds
+from watch.country_blocks import CountryBlocksResolver
 from watch.subnet import collapse_subnets
 
-BlockType = Literal["country", "subnet", "ip"]
+BlockType = Literal["country", "subnet", "ip", "country_cidr"]
 
 
 @dataclass(frozen=True)
@@ -75,6 +76,8 @@ def recommend_blocks(
     snapshot: WatchSnapshot,
     *,
     thresholds: WatchThresholds,
+    country_blocks: CountryBlocksResolver | None = None,
+    official_cidr_limit: int = 5,
 ) -> tuple[BlockRecommendation, ...]:
     recommendations: list[BlockRecommendation] = []
 
@@ -91,6 +94,12 @@ def recommend_blocks(
         ]
         collapsed = collapse_subnets(top_subnets[:20])
         cidr_detail = ", ".join(collapsed[:10]) if collapsed else "—"
+        official_detail = ""
+        if country_blocks is not None:
+            official_detail = country_blocks.format_summary_detail(
+                country.country_code,
+                limit=official_cidr_limit,
+            )
 
         recommendations.append(
             BlockRecommendation(
@@ -104,9 +113,33 @@ def recommend_blocks(
                 detail=(
                     f"{len(country.unique_ips)} unique IPs; "
                     f"observed subnets: {cidr_detail}"
+                    + (f"; {official_detail}" if official_detail else "")
                 ),
             )
         )
+
+        if country_blocks is not None:
+            summary = country_blocks.summary(
+                country.country_code,
+                limit=official_cidr_limit,
+            )
+            if summary is not None:
+                for cidr in summary.sample_cidrs:
+                    recommendations.append(
+                        BlockRecommendation(
+                            block_type="country_cidr",
+                            target=cidr,
+                            country_code=country.country_code,
+                            country_name=country.country_name,
+                            requests=country.requests,
+                            rps=country.rps,
+                            reason="official_country_cidr",
+                            detail=(
+                                f"Official GeoLite2 range for {summary.country_name} "
+                                f"({summary.total_cidrs:,} total)"
+                            ),
+                        )
+                    )
 
         for cidr in collapsed[:5]:
             count = country.subnets.get(cidr, 0)

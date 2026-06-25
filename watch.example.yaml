@@ -23,3 +23,9 @@ thresholds:
 snapshots:
   directory: reports/live
   every_seconds: 900
+
+# Official CIDR ranges per country (GeoLite2 CSV export, same folder as .mmdb).
+# Auto-detected when geoip_db points to a GeoLite2-Country directory.
+country_blocks:
+  display_limit: 5
+  export_with_snapshots: true

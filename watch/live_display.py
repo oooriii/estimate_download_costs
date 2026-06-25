@@ -102,8 +102,9 @@ def _blocks_table(blocks: tuple[BlockRecommendation, ...]) -> Panel:
         )
 
     subtitle = (
-        "Country blocks: use CloudFront geo restriction or WAF. "
-        "Subnet/IP: firewall or mod_security."
+        "Country blocks: CloudFront geo restriction or WAF. "
+        "country_cidr: official GeoLite2 ranges for firewall/ipset. "
+        "subnet/IP: observed traffic from logs."
     )
     return Panel(
         table,

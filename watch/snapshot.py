@@ -9,6 +9,8 @@ from pathlib import Path
 
 from watch.aggregator import WatchSnapshot
 from watch.blocking import BlockRecommendation
+from watch.country_blocks import CountryBlocksResolver
+from watch.country_blocks_export import export_flagged_country_cidrs
 
 
 def write_blocks_csv(path: Path, blocks: tuple[BlockRecommendation, ...]) -> None:
@@ -103,6 +105,8 @@ def _timestamp_slug(now: datetime | None = None) -> str:
 class SnapshotScheduler:
     directory: Path
     every_seconds: float
+    country_blocks: CountryBlocksResolver | None = None
+    export_country_cidrs: bool = True
     _last_saved_monotonic: float | None = None
 
     @property
@@ -131,5 +135,11 @@ class SnapshotScheduler:
         csv_path = self.directory / f"{slug}-blocks.csv"
         write_snapshot_json(json_path, snapshot, blocks)
         write_blocks_csv(csv_path, blocks)
+        if (
+            self.export_country_cidrs
+            and self.country_blocks is not None
+            and any(item.block_type == "country" for item in blocks)
+        ):
+            export_flagged_country_cidrs(self.directory, blocks, self.country_blocks)
         self._last_saved_monotonic = monotonic_now
         return json_path, csv_path

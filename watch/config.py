@@ -29,9 +29,19 @@ class SnapshotSettings:
 
 
 @dataclass
+class CountryBlocksSettings:
+    locations: str | None = None
+    blocks_ipv4: str | None = None
+    blocks_ipv6: str | None = None
+    display_limit: int = 5
+    export_with_snapshots: bool = True
+
+
+@dataclass
 class WatchConfig:
     geoip_db: str | None = None
     refresh_seconds: float = 2.0
     live: bool = True
     thresholds: WatchThresholds = field(default_factory=WatchThresholds)
     snapshots: SnapshotSettings = field(default_factory=SnapshotSettings)
+    country_blocks: CountryBlocksSettings = field(default_factory=CountryBlocksSettings)

@@ -12,8 +12,19 @@ from source import iter_events
 from watch.aggregator import WatchAggregator
 from watch.blocking import recommend_blocks
 from watch.config_loader import resolve_watch_runtime
+from watch.country_blocks import open_country_blocks_resolver
+from watch.country_blocks_export import export_flagged_country_cidrs
 from watch.live_display import LiveMonitor, render_snapshot
 from watch.snapshot import SnapshotScheduler, write_blocks_csv, write_snapshot_json
+
+
+def _recommend_blocks(snapshot, *, thresholds, runtime_config, country_blocks):
+    return recommend_blocks(
+        snapshot,
+        thresholds=thresholds,
+        country_blocks=country_blocks,
+        official_cidr_limit=runtime_config.country_blocks.display_limit,
+    )
 
 
 def _process_events(
@@ -21,12 +32,15 @@ def _process_events(
     console: Console,
     aggregator: WatchAggregator,
     thresholds,
+    runtime_config,
+    country_blocks,
     input_paths: list[Path] | None,
     live: bool,
     refresh_seconds: float,
     snapshot_scheduler: SnapshotScheduler | None,
     export_csv: Path | None,
     export_json: Path | None,
+    export_country_cidrs: Path | None,
 ) -> int:
     reading_stdin = not input_paths
     if live and reading_stdin and sys.stdin.isatty():
@@ -37,7 +51,11 @@ def _process_events(
         )
         return 1
 
+    last_blocks: tuple = ()
+
     def handle_snapshot(snapshot, blocks, *, now: datetime | None = None) -> None:
+        nonlocal last_blocks
+        last_blocks = blocks
         if snapshot_scheduler is not None and snapshot_scheduler.enabled:
             written = snapshot_scheduler.maybe_write(snapshot, blocks, now=now)
             if written is not None:
@@ -54,17 +72,26 @@ def _process_events(
             for event in iter_events(input_paths):
                 aggregator.ingest(event)
                 snapshot = aggregator.snapshot(now=event.timestamp)
-                blocks = recommend_blocks(snapshot, thresholds=thresholds)
+                blocks = _recommend_blocks(
+                    snapshot,
+                    thresholds=thresholds,
+                    runtime_config=runtime_config,
+                    country_blocks=country_blocks,
+                )
                 monitor.update(snapshot, blocks)
                 handle_snapshot(snapshot, blocks, now=event.timestamp)
     else:
         last_snapshot = None
-        last_blocks: tuple = ()
         for event in iter_events(input_paths):
             aggregator.ingest(event)
             last_snapshot = aggregator.snapshot(now=event.timestamp)
-            last_blocks = recommend_blocks(last_snapshot, thresholds=thresholds)
-            handle_snapshot(last_snapshot, last_blocks, now=event.timestamp)
+            blocks = _recommend_blocks(
+                last_snapshot,
+                thresholds=thresholds,
+                runtime_config=runtime_config,
+                country_blocks=country_blocks,
+            )
+            handle_snapshot(last_snapshot, blocks, now=event.timestamp)
 
         if last_snapshot is None:
             console.print("[yellow]Warning:[/yellow] no valid log events found.")
@@ -78,6 +105,15 @@ def _process_events(
         if export_json is not None:
             write_snapshot_json(export_json, last_snapshot, last_blocks)
             console.print(f"[green]Snapshot JSON:[/green] {export_json}")
+
+    if export_country_cidrs is not None and country_blocks is not None and last_blocks:
+        written = export_flagged_country_cidrs(
+            export_country_cidrs,
+            last_blocks,
+            country_blocks,
+        )
+        for path in written:
+            console.print(f"[green]Official country CIDRs:[/green] {path}")
 
     return 0
 
@@ -100,6 +136,24 @@ def cmd_watch(args: argparse.Namespace) -> int:
             console.print(f"[red]Error:[/red] {exc}")
             return 1
 
+    country_blocks = None
+    try:
+        country_blocks = open_country_blocks_resolver(
+            geoip_db=geoip_path,
+            locations=runtime_config.country_blocks.locations,
+            blocks_ipv4=runtime_config.country_blocks.blocks_ipv4,
+            blocks_ipv6=runtime_config.country_blocks.blocks_ipv6,
+        )
+    except (OSError, ValueError) as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        return 1
+
+    if country_blocks is None and runtime_config.country_blocks.locations:
+        console.print(
+            "[yellow]Warning:[/yellow] country blocks CSV files not found; "
+            "official CIDR recommendations disabled."
+        )
+
     aggregator = WatchAggregator(thresholds=thresholds, geo_resolver=resolver)
     input_paths = args.files if args.files else None
 
@@ -108,6 +162,8 @@ def cmd_watch(args: argparse.Namespace) -> int:
         snapshot_scheduler = SnapshotScheduler(
             directory=Path(runtime_config.snapshots.directory),
             every_seconds=runtime_config.snapshots.every_seconds,
+            country_blocks=country_blocks,
+            export_country_cidrs=runtime_config.country_blocks.export_with_snapshots,
         )
 
     try:
@@ -115,12 +171,15 @@ def cmd_watch(args: argparse.Namespace) -> int:
             console=console,
             aggregator=aggregator,
             thresholds=thresholds,
+            runtime_config=runtime_config,
+            country_blocks=country_blocks,
             input_paths=input_paths,
             live=runtime_config.live,
             refresh_seconds=runtime_config.refresh_seconds,
             snapshot_scheduler=snapshot_scheduler,
             export_csv=args.export_csv,
             export_json=args.export_json,
+            export_country_cidrs=args.export_country_cidrs,
         )
     finally:
         if isinstance(resolver, MaxMindGeoIpResolver):
@@ -149,6 +208,31 @@ def register_watch_command(subparsers: argparse._SubParsersAction) -> None:
         type=Path,
         metavar="PATH",
         help="MaxMind GeoLite2-Country.mmdb for country breakdown and blocks",
+    )
+    watch.add_argument(
+        "--country-blocks-locations",
+        type=Path,
+        metavar="PATH",
+        help="GeoLite2-Country-Locations-en.csv (auto-detected from --geoip-db)",
+    )
+    watch.add_argument(
+        "--country-blocks-ipv4",
+        type=Path,
+        metavar="PATH",
+        help="GeoLite2-Country-Blocks-IPv4.csv (auto-detected from --geoip-db)",
+    )
+    watch.add_argument(
+        "--country-blocks-ipv6",
+        type=Path,
+        metavar="PATH",
+        help="GeoLite2-Country-Blocks-IPv6.csv (auto-detected from --geoip-db)",
+    )
+    watch.add_argument(
+        "--country-cidr-limit",
+        type=int,
+        default=5,
+        metavar="N",
+        help="Official CIDR samples per flagged country (default: 5)",
     )
     watch.add_argument(
         "--live",
@@ -263,5 +347,11 @@ def register_watch_command(subparsers: argparse._SubParsersAction) -> None:
         type=Path,
         metavar="PATH",
         help="Write snapshot JSON (batch mode)",
+    )
+    watch.add_argument(
+        "--export-country-cidrs",
+        type=Path,
+        metavar="DIR",
+        help="Export all official GeoLite2 CIDR ranges for flagged countries",
     )
     watch.set_defaults(func=cmd_watch)
