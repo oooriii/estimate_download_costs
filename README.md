@@ -508,6 +508,12 @@ Input log files (`20260615_downloads_*.txt`, `20260615_static_*.txt`) are exclud
 
 Generate them on the server (see above) and keep them local to run the analysis.
 
+### Server stability runbook
+
+For production triage (vmstat, iostat, swap, Tomcat/Solr/Postgres, firewall
+relief strategy) and how it connects to `watch` / `ruleset`, see
+[docs/diagnostic-runbook.md](docs/diagnostic-runbook.md).
+
 ## Tests and CI
 
 ```bash
